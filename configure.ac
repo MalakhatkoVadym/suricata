@@ -2389,6 +2389,29 @@ return 0;
         fi
     fi
 
+# Stenographer(libcurl) support
+     AC_ARG_ENABLE(stenographer,
+           AS_HELP_STRING([--enable-stenographer], [Enable Testimony (unix socket) support [default=no]]),
+                        [enable_stenographer=$enableval],[enable_stenographer=no])
+     AS_IF([test "x$enable_stenographer" = "xyes"], [
+        # AC_CHECK_HEADER(curl.h,,[AC_MSG_ERROR(curl.h not found ...)],)
+        AC_CHECK_LIB(curl, curl_version, libcurl=yes, libcurl=no)
+        if test "$libcurl" = "xno"; then
+            echo
+            echo "  ERROR: libtestimony is not bundled. Get libtestimony by doing:"
+            echo "     git clone https://github.com/google/testimony.git"
+            echo "  Then run 'cd testimony && sudo make -C c/ install'."
+            echo "  Or, if libtestimony is installed in a different location,"
+            echo "  add --with-testimony-includes=<dir> and --with-testimony-libraries=<dir>"
+            echo "  if libtestimony is not installed in the include and library paths."
+            echo
+            exit 1
+        fi
+        AC_DEFINE([HAVE_LIBCURL],[1],[Libcurl support is available])
+        LIBS="${LIBS} -lcurl"
+    ])
+
+
 # Check for lz4
 enable_liblz4="yes"
 AC_CHECK_LIB(lz4, LZ4F_createCompressionContext, , enable_liblz4="no")
