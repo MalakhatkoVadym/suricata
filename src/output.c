@@ -48,6 +48,7 @@
 #include "output-json-alert.h"
 #include "output-json-anomaly.h"
 #include "output-json-flow.h"
+#include "alert-stenographer.h"
 #include "output-json-netflow.h"
 #include "log-cf-common.h"
 #include "output-json-drop.h"
@@ -1098,6 +1099,8 @@ void OutputRegisterLoggers(void)
     AlertPreludeRegister();
     /* syslog log */
     AlertSyslogRegister();
+    /* stenographer log */
+    AlertStenographerRegister();
     JsonDropLogRegister();
     /* json log */
     OutputJsonRegister();

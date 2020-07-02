@@ -784,7 +784,17 @@ void RunModeInitializeOutputs(void)
                     "files installed to add lua support.");
             continue;
 #endif
-        } else if (strcmp(output->val, "dns-log") == 0) {
+        } 
+         else if (strcmp(output->val, "alert-stenographer") == 0) {
+#ifndef HAVE_LIBCURL
+            SCLogWarning(SC_ERR_NOT_SUPPORTED,
+                    "Stenographer support not compiled in. Reconfigure/"
+                    "recompile with --enable-stenographer to add Stenographer "
+                    "support.");
+            continue;
+#endif
+        }
+        else if (strcmp(output->val, "dns-log") == 0) {
             SCLogWarning(SC_ERR_NOT_SUPPORTED,
                     "dns-log is not longer available as of Suricata 5.0");
             continue;

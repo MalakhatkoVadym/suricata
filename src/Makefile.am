@@ -18,6 +18,7 @@ alert-debuglog.c alert-debuglog.h \
 alert-fastlog.c alert-fastlog.h \
 alert-prelude.c alert-prelude.h \
 alert-syslog.c alert-syslog.h \
+alert-stenographer.c alert-stenographer.h \
 app-layer.c app-layer.h \
 app-layer-dcerpc.c app-layer-dcerpc.h \
 app-layer-dcerpc-udp.c app-layer-dcerpc-udp.h \
@@ -472,6 +473,7 @@ util-ip.h util-ip.c \
 util-ja3.h util-ja3.c \
 util-logopenfile.h util-logopenfile.c \
 util-log-redis.h util-log-redis.c \
+util-log-stenographer.h util-log-stenographer.c \
 util-lua.c util-lua.h \
 util-luajit.c util-luajit.h \
 util-lua-common.c util-lua-common.h \

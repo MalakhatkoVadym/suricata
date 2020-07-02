@@ -2430,6 +2430,25 @@ return 0;
         fi
     fi
 
+# Stenographer(libcurl) support
+     AC_ARG_ENABLE(stenographer,
+           AS_HELP_STRING([--enable-stenographer], [Enable Testimony (unix socket) support [default=no]]),
+                        [enable_stenographer=$enableval],[enable_stenographer=no])
+     AS_IF([test "x$enable_stenographer" = "xyes"], [
+        # AC_CHECK_HEADER(curl.h,,[AC_MSG_ERROR(curl.h not found ...)],)
+        AC_CHECK_LIB(curl, curl_version, libcurl=yes, libcurl=no)
+        if test "$libcurl" = "xno"; then
+            echo
+            echo "  ERROR: libcurl is not bundled. Get libcurl by doing:"
+            echo "  Ubuntu: apt-get install libcurl-dev"
+            echo "  Centos: yum install libcurl-devel "
+            exit 1
+        fi
+        AC_DEFINE([HAVE_LIBCURL],[1],[Libcurl support is available])
+        LIBS="${LIBS} -lcurl"
+    ])
+
+
 # Check for lz4
 enable_liblz4="yes"
 AC_CHECK_LIB(lz4, LZ4F_createCompressionContext, , enable_liblz4="no")
