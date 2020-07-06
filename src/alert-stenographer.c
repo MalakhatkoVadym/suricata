@@ -313,9 +313,9 @@ int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p)
         char start_timebuf[64];
         CreateIsoTimeStringNoMS(&start_time, start_timebuf, sizeof(start_timebuf));
 
-        printf("available space: %ld ", GetAvailableDiskSpace(aft->ctx->pcap_dir));
         pid_t pid = fork();
         if (pid == 0) {
+            if(aft->ctx->cleanup) {
             if(aft->ctx->cleanup_expiry_time) {
                 int files_deleted = CleanupOldest(aft->ctx->pcap_dir, aft->ctx->cleanup_expiry_time, aft->ctx->cleanup_script);
                 if(files_deleted) {
@@ -329,7 +329,6 @@ int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p)
 
             if(aft->ctx->min_disk_space_left) {
                 
-                printf("available space: %ld ", GetAvailableDiskSpace(aft->ctx->pcap_dir));
                 if(aft->ctx->min_disk_space_left > GetAvailableDiskSpace(aft->ctx->pcap_dir)) {
                     int files_deleted = CleanupOldest(aft->ctx->pcap_dir, 0, aft->ctx->cleanup_script);
                     if(files_deleted) {
@@ -340,6 +339,7 @@ int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p)
                         AlertStenographerOutputAlert(aft, cleanup_message, cleanup_size);
                     }
                 }
+            }
             }
 
             struct timeval current_time;
@@ -451,7 +451,7 @@ OutputInitResult AlertStenographerInitCtx(ConfNode *conf)
                 uint64_t size = pl->size_limit * 1024 * 1024;
                 pl->size_limit = size;
             } else if (pl->size_limit < MIN_LIMIT) {
-                SCLogError(SC_ERR_INVALID_ARGUMENT,
+                SCLogError(SC_ERR_INVALID_ARGUMENT, 
                     "Fail to initialize pcap-log output, limit less than "
                     "allowed minimum.");
                 exit(EXIT_FAILURE);

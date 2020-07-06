@@ -394,6 +394,26 @@ outputs:
       profile: suricata
       log-packet-content: no
       log-packet-header: yes
+  - alert-stenographer:
+      enabled: yes
+      filename: stenographer.log
+      append: yes
+      # folder, where alert's pcaps will be saved
+      pcap-dir: /home/vadym/pcaps/
+      #             # time range for saving pcap in seconds
+      before-time: 30
+      after-time: 5
+      # lz4 compression for pcap files
+      compression: yes
+      no-overlapping: yes
+      cleanup:
+          enabled: yes
+          script: /home/vadym/script.sh
+          # expiry time in seconds (will be disabled if 0)
+          expiry-time: 0
+          # cleanup pcap folder after less than this amount of bytes left on device
+          # will be disabled if 0
+          min-disk-space-left: 0
 
   # Stats.log contains data from various counters of the Suricata engine.
   - stats:

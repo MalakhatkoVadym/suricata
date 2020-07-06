@@ -136,8 +136,8 @@ compress_file_internal(const char* f_in, FILE* f_out,
             return result;
         }
         count_out = headerSize;
-        printf("Buffer size is %u bytes, header size %u bytes \n",
-                (unsigned)outCapacity, (unsigned)headerSize);
+        //printf("Buffer size is %u bytes, header size %u bytes \n",
+        //        (unsigned)outCapacity, (unsigned)headerSize);
         safe_fwrite(outBuff, 1, headerSize, f_out);
     }
 
@@ -147,7 +147,7 @@ compress_file_internal(const char* f_in, FILE* f_out,
         count_in += readSize;
 
         size_t const compressedSize = LZ4F_compressUpdate(ctx,
-                                                outBuff, outCapacity,
+                                                outBuff, outCapacity,   
                                                 f_in, readSize,
                                                 NULL);
         if (LZ4F_isError(compressedSize)) {
@@ -155,9 +155,10 @@ compress_file_internal(const char* f_in, FILE* f_out,
             return result;
         }
 
-        printf("Writing %u bytes\n", (unsigned)compressedSize);
-        safe_fwrite(outBuff, 1, compressedSize, f_out);
-        count_out += compressedSize;
+        if(compressedSize) {
+            safe_fwrite(outBuff, 1, compressedSize, f_out);
+            count_out += compressedSize;
+        }
     
 
     /* flush whatever remains within internal buffers */
@@ -169,7 +170,7 @@ compress_file_internal(const char* f_in, FILE* f_out,
             return result;
         }
 
-        printf("Writing %u bytes \n", (unsigned)compressedSize);
+        // printf("Writing %u bytes \n", (unsigned)compressedSize);
         safe_fwrite(outBuff, 1, compressedSize, f_out);
         count_out += compressedSize;
     }
@@ -240,7 +241,6 @@ int LogStenographerFileWrite(void *lf_ctx, const char *file_path, const char* st
     if(res != CURLE_OK)
       fprintf(stderr, "curl_easy_perform() failed: %s\n",
               curl_easy_strerror(res));
-    printf("chunk size: %zu \n", chunk.size);
     FILE *fptr;
     const char * dir = ((AlertStenographerCtx *)lf_ctx)->pcap_dir;
     char *result = malloc(strlen(dir) + strlen(file_path) + 6); // +1 for the null-terminator
