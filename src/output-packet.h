@@ -29,6 +29,8 @@
 #include "decode.h"
 #include "output.h"
 
+
+
 /** packet logger function pointer type */
 typedef int (*PacketLogger)(ThreadVars *, void *thread_data, const Packet *);
 
@@ -37,12 +39,28 @@ typedef int (*PacketLogger)(ThreadVars *, void *thread_data, const Packet *);
  */
 typedef int (*PacketLogCondition)(ThreadVars *, const Packet *);
 
+
+/* logger instance, a module + a output ctx,
+ * it's perfectly valid that have multiple instances of the same
+ * log module (e.g. fast.log) with different output ctx'. */
+typedef struct OutputPacketLogger_ {
+    PacketLogger LogFunc;
+    PacketLogCondition ConditionFunc;
+    OutputCtx *output_ctx;
+    struct OutputPacketLogger_ *next;
+    const char *name;
+    LoggerId logger_id;
+    ThreadInitFunc ThreadInit;
+    ThreadDeinitFunc ThreadDeinit;
+    ThreadExitPrintStatsFunc ThreadExitPrintStats;
+} OutputPacketLogger;
+
 int OutputRegisterPacketLogger(LoggerId logger_id, const char *name,
     PacketLogger LogFunc, PacketLogCondition ConditionFunc, OutputCtx *,
     ThreadInitFunc, ThreadDeinitFunc, ThreadExitPrintStatsFunc);
 
 void OutputPacketLoggerRegister(void);
-
+OutputPacketLogger * OutputPacketLoggerGetByName(const char *name);
 void OutputPacketShutdown(void);
 
 #endif /* __OUTPUT_PACKET_H__ */

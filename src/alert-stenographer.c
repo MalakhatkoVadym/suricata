@@ -73,12 +73,12 @@ void AlertStenographerRegisterTests(void);
 static void AlertStenographerDeInitCtx(OutputCtx *);
 
 int AlertStenographerCondition(ThreadVars *tv, const Packet *p);
-int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p);
+int AlertStenographer(ThreadVars *tv, void *data, const Packet *p);
 
 void AlertStenographerRegister(void)
 {
     OutputRegisterPacketModule(LOGGER_ALERT_STENOGRAPHER, MODULE_NAME, "alert-stenographer",
-        AlertStenographerInitCtx, AlertStenographerger, AlertStenographerCondition,
+        AlertStenographerInitCtx, AlertStenographer, AlertStenographerCondition,
         AlertStenographerThreadInit, AlertStenographerThreadDeinit, NULL);
     AlertStenographerRegisterTests();
 }
@@ -182,9 +182,87 @@ unsigned long GetAvailableDiskSpace(const char* path) {
   return stat.f_bsize * stat.f_bavail;
 }
 
-int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p)
+static long last_alert_sec;
+
+int SignalStenographer(void *data) {
+  
+    AlertStenographerThread *aft = (AlertStenographerThread *)data;
+    char timebuf[64];
+
+    int size = 0;
+    char stenographerPcapAlertFile[64];
+    struct timeval signal_time;
+    gettimeofday(&signal_time, NULL);
+    CreateIsoTimeString(&signal_time, stenographerPcapAlertFile, sizeof(stenographerPcapAlertFile));
+    
+    CreateTimeString(&signal_time, timebuf, sizeof(timebuf));
+    char alert_buffer[MAX_STENOGRAPHER_BUFFER_SIZE];
+    PrintBufferData(alert_buffer, &size, MAX_STENOGRAPHER_ALERT_SIZE,
+                            "Pcap file was saved after receiving SIGUSR2 %s", stenographerPcapAlertFile);
+    AlertStenographerOutputAlert(aft, alert_buffer, size);
+        
+    struct timeval end_time;
+    end_time.tv_sec = signal_time.tv_sec + aft->ctx->after_time;
+    end_time.tv_usec = signal_time.tv_usec;
+    char end_timebuf[64];
+    CreateIsoTimeStringNoMS(&end_time, end_timebuf, sizeof(end_timebuf));
+        
+    struct timeval start_time;
+    start_time.tv_sec = signal_time.tv_sec - aft->ctx->before_time;
+    start_time.tv_usec = signal_time.tv_usec;
+    if(aft->ctx->no_overlapping) {
+        if (start_time.tv_sec < last_alert_sec) {
+            start_time.tv_sec = last_alert_sec;
+            last_alert_sec = end_time.tv_sec;
+        }
+    }
+    char start_timebuf[64];
+    CreateIsoTimeStringNoMS(&start_time, start_timebuf, sizeof(start_timebuf));
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        if(aft->ctx->cleanup) {
+            if(aft->ctx->cleanup_expiry_time) {
+                int files_deleted = CleanupOldest(aft->ctx->pcap_dir, aft->ctx->cleanup_expiry_time, aft->ctx->cleanup_script);
+                if(files_deleted) {
+                    char cleanup_message[MAX_STENOGRAPHER_BUFFER_SIZE];
+                    int cleanup_size = 0;
+                    PrintBufferData(cleanup_message, &cleanup_size, MAX_STENOGRAPHER_ALERT_SIZE,
+                        "%s Cleanup of the folder '%s' is finished, %d file(s) older than %lu seconds were deleted \n", timebuf, aft->ctx->pcap_dir, files_deleted, aft->ctx->cleanup_expiry_time);
+                    AlertStenographerOutputAlert(aft, cleanup_message, cleanup_size);
+                }
+            }
+
+            if(aft->ctx->min_disk_space_left) {
+                
+            if(aft->ctx->min_disk_space_left > GetAvailableDiskSpace(aft->ctx->pcap_dir)) {
+                int files_deleted = CleanupOldest(aft->ctx->pcap_dir, 0, aft->ctx->cleanup_script);
+                if(files_deleted) {
+                    char cleanup_message[MAX_STENOGRAPHER_BUFFER_SIZE];
+                    int cleanup_size = 0;
+                    PrintBufferData(cleanup_message, &cleanup_size, MAX_STENOGRAPHER_ALERT_SIZE,
+                            "%s Cleanup of the folder '%s' is finished, %d file(s) were deleted, %lu bytes of empty space left \n", timebuf, aft->ctx->pcap_dir, files_deleted, GetAvailableDiskSpace(aft->ctx->pcap_dir));
+                    AlertStenographerOutputAlert(aft, cleanup_message, cleanup_size);
+                    }
+                }
+            }
+        }
+
+        struct timeval current_time;
+        gettimeofday(&current_time, NULL);
+        while (current_time.tv_sec < (end_time.tv_sec + 60)) {
+            gettimeofday(&current_time, NULL);
+            sleep(1);
+        }
+            
+        LogStenographerFileWrite((void *)aft->ctx, stenographerPcapAlertFile, start_timebuf, end_timebuf);
+        exit(0);
+    }
+}
+
+
+int AlertStenographer(ThreadVars *tv, void *data, const Packet *p)
 {
-    static long last_alert_sec;
     AlertStenographerThread *aft = (AlertStenographerThread *)data;
     int i;
     char timebuf[64];
@@ -296,9 +374,10 @@ int AlertStenographerger(ThreadVars *tv, void *data, const Packet *p)
         start_time.tv_sec = p->ts.tv_sec - aft->ctx->before_time;
         start_time.tv_usec = p->ts.tv_usec;
         if(aft->ctx->no_overlapping) {
-            if (start_time.tv_sec < last_alert_sec)
-            start_time.tv_sec = last_alert_sec;
-            last_alert_sec = end_time.tv_sec;
+            if (start_time.tv_sec < last_alert_sec) {
+                start_time.tv_sec = last_alert_sec;
+                last_alert_sec = end_time.tv_sec;
+            }
         }
         char start_timebuf[64];
         CreateIsoTimeStringNoMS(&start_time, start_timebuf, sizeof(start_timebuf));
@@ -402,6 +481,12 @@ OutputInitResult AlertStenographerInitCtx(ConfNode *conf)
         return result;
     }
     const char * pcap_dir = ConfNodeLookupChildValue(conf, "pcap-dir");
+    if (pcap_dir == NULL) {
+        SCLogError(SC_ERR_INVALID_ARGUMENT,
+                    "Failed to initialize pcap directory, invalid path: %s",
+                    pcap_dir);
+        exit(EXIT_FAILURE);
+    }
     const char * s_before_time = ConfNodeLookupChildValue(conf, "before-time");
 
     uint32_t before_time = 0;

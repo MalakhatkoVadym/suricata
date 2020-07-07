@@ -41,21 +41,6 @@ typedef struct OutputLoggerThreadData_ {
     OutputLoggerThreadStore *store;
 } OutputLoggerThreadData;
 
-/* logger instance, a module + a output ctx,
- * it's perfectly valid that have multiple instances of the same
- * log module (e.g. fast.log) with different output ctx'. */
-typedef struct OutputPacketLogger_ {
-    PacketLogger LogFunc;
-    PacketLogCondition ConditionFunc;
-    OutputCtx *output_ctx;
-    struct OutputPacketLogger_ *next;
-    const char *name;
-    LoggerId logger_id;
-    ThreadInitFunc ThreadInit;
-    ThreadDeinitFunc ThreadDeinit;
-    ThreadExitPrintStatsFunc ThreadExitPrintStats;
-} OutputPacketLogger;
-
 static OutputPacketLogger *list = NULL;
 
 int OutputRegisterPacketLogger(LoggerId logger_id, const char *name,
@@ -209,6 +194,17 @@ static void OutputPacketLogExitPrintStats(ThreadVars *tv, void *thread_data)
         store = store->next;
     }
 }
+
+OutputPacketLogger * OutputPacketLoggerGetByName(const char *name)
+{
+    for (OutputPacketLogger *p = list; p != NULL; p = p->next) {
+        if(strcasecmp(p->name, name) == 0) {
+            return p;
+        }
+    }
+    return NULL;
+}
+
 
 static uint32_t OutputPacketLoggerGetActiveCount(void)
 {

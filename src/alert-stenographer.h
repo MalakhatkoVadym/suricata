@@ -48,6 +48,7 @@ void AlertStenographerRegister(void);
 OutputInitResult AlertStenographerInitCtx(ConfNode *);
 int CleanupOldest (const char *dirname, time_t expiry, const char * script_before_cleanup);
 unsigned long GetAvailableDiskSpace(const char* path);
+int SignalStenographer(void *data);
 
 #endif /* __ALERT_STENOGRAPHER_H__ */
 

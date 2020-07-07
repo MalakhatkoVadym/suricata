@@ -185,6 +185,7 @@ volatile sig_atomic_t sigint_count = 0;
 volatile sig_atomic_t sighup_count = 0;
 volatile sig_atomic_t sigterm_count = 0;
 volatile sig_atomic_t sigusr2_count = 0;
+volatile sig_atomic_t sigusr1_count = 0;
 
 /*
  * Flag to indicate if the engine is at the initialization
@@ -304,6 +305,18 @@ static void SignalHandlerSigusr2(int sig)
     if (sigusr2_count < 2)
         sigusr2_count++;
 }
+
+/**
+ * SIGUSR1 handler.  Just set sigusr1_count.  The main loop will act on
+ * it.
+ */
+static void SignalHandlerSigusr1(int sig)
+{
+    if (sigusr1_count < 2) {
+        sigusr1_count++;
+    }
+}
+
 
 /**
  * SIGHUP handler.  Just set sighup_count.  The main loop will act on
@@ -2338,6 +2351,8 @@ static void PostRunStartedDetectSetup(const SCInstance *suri)
     if (DetectEngineEnabled() && suri->delayed_detect == 0) {
         UtilSignalHandlerSetup(SIGUSR2, SignalHandlerSigusr2);
         UtilSignalUnblock(SIGUSR2);
+        UtilSignalHandlerSetup(SIGUSR1, SignalHandlerSigusr1);
+        UtilSignalUnblock(SIGUSR1);
     }
 #endif
     if (suri->delayed_detect) {
@@ -2347,6 +2362,8 @@ static void PostRunStartedDetectSetup(const SCInstance *suri)
 #ifndef OS_WIN32
         UtilSignalHandlerSetup(SIGUSR2, SignalHandlerSigusr2);
         UtilSignalUnblock(SIGUSR2);
+        UtilSignalHandlerSetup(SIGUSR1, SignalHandlerSigusr1);
+        UtilSignalUnblock(SIGUSR1);
 #endif
     }
 }
@@ -2655,7 +2672,8 @@ int PostConfLoadedSetup(SCInstance *suri)
 
     SCReturnInt(TM_ECODE_OK);
 }
-
+#include "output-packet.h"
+#include "alert-stenographer.h"
 static void SuricataMainLoop(SCInstance *suri)
 {
     while(1) {
@@ -2674,7 +2692,16 @@ static void SuricataMainLoop(SCInstance *suri)
             OutputNotifyFileRotation();
             sighup_count--;
         }
+        if (sigusr1_count > 0) {
+            OutputPacketLogger * packetLogger = OutputPacketLoggerGetByName("AlertStenographer");
+            if(packetLogger != NULL) {
+                SCLogNotice("sigusr1");
+                SignalStenographer(packetLogger->output_ctx);
+        
+            }
 
+            sigusr1_count--;
+        }
         if (sigusr2_count > 0) {
             if (!(DetectEngineReloadIsStart())) {
                 DetectEngineReloadStart();
